@@ -29,12 +29,6 @@ st.markdown(
         height: 0rem;
     }
 
-    div[data-testid="stToolbar"] {
-        visibility: hidden;
-        height: 0%;
-        position: fixed;
-    }
-
     .stApp {
         background: #171f5f;
         color: #f7f3ee;
