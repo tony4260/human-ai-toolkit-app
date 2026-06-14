@@ -36,3 +36,7 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 streamlit run app.py
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for the full 10-stage product and architecture plan.
