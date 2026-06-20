@@ -405,6 +405,31 @@ st.markdown(
             font-size: 1.6rem;
         }
 
+        .st-key-purpose_selector {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+
+        .st-key-purpose_selector > div[data-testid="stElementContainer"] {
+            grid-column: 1 / -1;
+        }
+
+        .st-key-purpose_selector > div[data-testid="stLayoutWrapper"],
+        .st-key-purpose_selector
+            > div[data-testid="stLayoutWrapper"]
+            > div[data-testid="stHorizontalBlock"] {
+            display: contents;
+        }
+
+        .st-key-purpose_selector
+            > div[data-testid="stLayoutWrapper"]
+            > div[data-testid="stHorizontalBlock"]
+            > div[data-testid="stColumn"] {
+            min-width: 0 !important;
+            width: 100% !important;
+        }
+
         .focus-display {
             font-size: 1rem;
         }
@@ -467,7 +492,7 @@ if st.session_state.session_purpose is None:
     left_space, center_column, right_space = st.columns([1, 4, 1])
 
     with center_column:
-        with st.container(border=True):
+        with st.container(border=True, key="purpose_selector"):
             st.markdown(
                 """
                 <div class="purpose-card-title">
