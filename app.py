@@ -1,5 +1,9 @@
 import streamlit as st
 
+from toolkit_chat import build_prompt
+from toolkit_memory import CollaborationRules
+from toolkit_session import render_start, render_workspace
+
 
 st.set_page_config(
     page_title="Human-AI Cognitive Toolkit",
@@ -485,6 +489,12 @@ st.markdown(
 st.divider()
 
 
+workspace = st.session_state.get("toolkit_workspace")
+if workspace is not None:
+    render_workspace(workspace)
+    st.stop()
+
+
 # --------------------------------------------------
 # First-screen purpose card
 # --------------------------------------------------
@@ -673,42 +683,20 @@ user_inquiry = st.text_area(
 # --------------------------------------------------
 # Generated prompt
 # --------------------------------------------------
-generated_prompt = f"""
-You are acting as a {ai_role}.
-
-Our focus is:
-{st.session_state.session_purpose}
-
-Additional context:
-{additional_context if additional_context else "[No additional context provided.]"}
-
-What I would like to explore:
-{user_inquiry if user_inquiry else "[No question or topic entered yet.]"}
-
-When answering, follow these rules:
-- Help me think better, not just faster.
-- Separate facts, assumptions, opinions, and uncertainty when relevant.
-- Tell me what needs verification.
-- Point out missing context or possible blind spots.
-- Do not make the final decision for me.
-- Preserve my role as the final interpreter.
-- Include a short Reality Check explaining what may be uncertain or incomplete.
-- End with one thoughtful question for me under a section called "Your Turn."
-
-My source and evidence expectation:
-{source_expectation}
-
-Preferred answer style:
-{answer_style}
-
-Preferred response length:
-{response_length}
-"""
+rules = CollaborationRules(
+    evidence_expectation=source_expectation,
+    ai_role=ai_role,
+    answer_style=answer_style,
+    response_length=response_length,
+)
+generated_prompt = build_prompt(
+    st.session_state.session_purpose, rules, additional_context, user_inquiry
+)
 
 
 with st.expander("View and copy your starter prompt"):
     st.code(
-        generated_prompt.strip(),
+        generated_prompt,
         language="text",
     )
 
@@ -716,3 +704,5 @@ st.caption(
     "AI is a partner, not a substitute. "
     "You remain responsible for judgment, meaning, and action."
 )
+
+render_start(st.session_state.session_purpose, user_inquiry, additional_context, rules)
