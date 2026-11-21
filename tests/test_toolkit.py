@@ -252,3 +252,75 @@ def test_responses_sdk_parses_structured_reply(monkeypatch):
     )
     assert output.model_dump() == response_body
     assert "**Reality Check**" in output.as_markdown()
+
+
+def test_responses_sdk_sends_review_task_after_chat_transcript(monkeypatch):
+    import httpx
+    from openai import OpenAI
+
+    response_body = {
+        "evidence": [{"claim": scenario.UNSUPPORTED, "source_reference": None, "notes": "Unsupported"}],
+        "options": [{"option": scenario.REJECTED, "explicitly_rejected": True, "reason": "User declined"}],
+        "open_questions": [scenario.QUESTION],
+        "reality_check": scenario.REALITY_CHECK,
+    }
+
+    def handle(request):
+        payload = json.loads(request.content)
+        assert [turn["role"] for turn in payload["input"]] == ["user", "assistant", "user"]
+        assert "structured handoff proposal" in payload["input"][-1]["content"]
+        schema = payload["text"]["format"]["schema"]
+        assert set(schema["required"]) == set(response_body)
+        assert set(schema["$defs"]["EvidenceDraft"]["required"]) == {
+            "claim", "source_reference", "notes"
+        }
+        return httpx.Response(200, json={
+            "id": "resp_review_test",
+            "object": "response",
+            "status": "completed",
+            "created_at": 0,
+            "model": chat.DEFAULT_MODEL,
+            "output": [{
+                "id": "msg_review_test", "type": "message", "role": "assistant", "status": "completed",
+                "content": [{"type": "output_text", "text": json.dumps(response_body), "annotations": []}],
+            }],
+        })
+
+    transport = httpx.MockTransport(handle)
+    monkeypatch.setattr(
+        chat, "OpenAI", lambda **kwargs: OpenAI(http_client=httpx.Client(transport=transport), **kwargs)
+    )
+    draft = chat.draft_review(
+        "test-key",
+        chat.DEFAULT_MODEL,
+        [
+            chat.Turn(role="user", content=scenario.MATERIAL),
+            chat.Turn(role="assistant", content="I’ll prepare the handoff."),
+        ],
+    )
+    assert draft.model_dump() == response_body
+
+
+def test_review_api_error_logs_status_and_request_id_without_body(monkeypatch, caplog):
+    import httpx
+    from openai import OpenAI
+
+    def handle(request):
+        return httpx.Response(
+            400,
+            headers={"x-request-id": "req_test_review"},
+            json={"error": {"message": "Private API error body"}},
+        )
+
+    transport = httpx.MockTransport(handle)
+    monkeypatch.setattr(
+        chat, "OpenAI", lambda **kwargs: OpenAI(http_client=httpx.Client(transport=transport), **kwargs)
+    )
+    with pytest.raises(chat.ChatError, match="OpenAI returned HTTP 400"):
+        chat.draft_review(
+            "test-key",
+            chat.DEFAULT_MODEL,
+            [chat.Turn(role="user", content=scenario.MATERIAL)],
+        )
+    assert "ReviewDraft returned HTTP 400 (request ID req_test_review)" in caplog.text
+    assert "Private API error body" not in caplog.text
